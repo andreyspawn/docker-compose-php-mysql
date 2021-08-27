@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  php:
+    #образ для PHP, указываем путь к нему и говорим что его надо собрать
+    build: ./server_http
+    ports:
+        - "9000:9000"
+    # этот образ будет общаться с mysql
+    links:
+        - mysql
+    # монтируем директории, 
+    # слева директории на основной машине, 
+    #справа - куда они монтируются в контейнере
+    volumes:
+        - ./server_http/samplePHP:/project
+  
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    
+    ports:
+      - "3306:3306"
+    # задаем пароль для root пользователя
+    # заливку дампа сайта и создание пользователя для доступа к базе снаружи будем делать позже 
+    environment:
+        MYSQL_ROOT_PASSWORD: password
+        MYSQL_DATABASE: test
+        MYSQL_USER: user
+        MYSQL_PASSWORD: userpass
+        DEFAULT_AUTHENTICATION_PLUGIN: mysql_native_password

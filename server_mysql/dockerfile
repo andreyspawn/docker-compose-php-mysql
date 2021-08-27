@@ -1,0 +1,11 @@
+#for build image
+#docker build -t <name_image>:<tag_image> .
+
+#for run container 
+# docker run -d -rm --name <name_container> --publish=<numper_port_local>:<number_port_container> <name_image>:<tag_image>
+FROM mysql:latest
+LABEL maintainer="prive_s@ukr.net"
+RUN apt-get -y update \
+&& apt-get clean \
+&& rm -rf /tmp/* \
+&& rm -rf /var/lib/apt/lists/*
