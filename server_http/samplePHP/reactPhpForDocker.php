@@ -1,46 +1,20 @@
 <?php
 
-const MYSQL_SERVER = "mysql";
+const MYSQL_SERVER = "mysql:host=mysql";
 const MYSQL_SERVER_LOCALHOST = "localhost";
 const MYSQL_USER = "root";
 const MYSQL_PASSWORD = 'password';
-const MYSQL_DB = 'test';
+const MYSQL_DB = 'dbname=test';
 
-use React\EventLoop\Factory;
 use React\EventLoop\Loop;
-use React\Promise\Deferred;
-use React\Promise\Promise;
-use React\Http\Server;
+use React\Http\HttpServer;
 use Psr\Http\Message\ServerRequestInterface;
 use React\Http\Message\Response;
-use React\Socket\Server as SocketServer;
-
-// $sql = "CREATE TABLE MyGuests (
-//     id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-//     firstname VARCHAR(30) NOT NULL,
-//     lastname VARCHAR(30) NOT NULL,
-//     email VARCHAR(50),
-//     reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-//     )";
-
-// $sql = "CREATE TABLE messages (id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY)";
-// $sql = "SHOW DATABASES";
-
-// $mysql = new mysqli();
-// $mysqlConnection = $mysql->connect(MYSQL_SERVER, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB);
-// var_dump($mysqlConnection);
-
-// if ($mysqlConnection->connect_error) {
-//     echo "Connection failed: " . $conn->connect_error;
-//   }
-//   else {
-//       echo "Connected successfully";
-//   }
-
+use React\Socket\SocketServer;
 
 require __DIR__.'/vendor/autoload.php';
 
-$dbh = new PDO('mysql:host=mysql;dbname=test', 'root', 'password');
+$dbh = new PDO(MYSQL_SERVER.';'.MYSQL_DB, 'root', 'password');
 $sql = "CREATE TABLE messages (
     id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     key_msg VARCHAR(30) NOT NULL, 
@@ -56,30 +30,35 @@ $preparedQuery->bindParam(':key_msg', $key_msg);
 $preparedQuery->bindParam(':msg', $msg);
 $preparedQuery->execute();
 
-$key_msg = "time:".time();
-$msg = "messaage text:".rand();
+// $key_msg = "time:".time();
+// $msg = "messaage text:".rand();
 
-$loop = Factory::create();
+$loop = Loop::get();
 
-$server = new Server($loop,
+$server = new HttpServer(
+    $loop,
+    function (ServerRequestInterface $request) use ($dbh, $preparedQuery) {
+        $browAgent = ":".implode("/",$request->getHeader('user-agent'));
+        $params = $request->getQueryParams();
+        $key_msg = $params['key'] ? $params['key'].time() : 'Key is not set!';
+        $msg = isset($params['msg']) ? $params['msg'].$browAgent : 'Message is null';
+        $preparedQuery->bindParam(':key_msg', $key_msg);
+        $preparedQuery->bindParam(':msg', $msg);
+        $preparedQuery->execute();
+        echo $params['key'].PHP_EOL;
+        echo $params['msg'].PHP_EOL;
+        echo $browAgent.PHP_EOL;
+        return new Response(
+            200,
+            ['Content-Type' => 'application/json'],
+            json_encode(["simple_text" => "New message!!!"])
+        );
+    }
+);
 
-function(ServerRequestInterface $request) use ($dbh,$preparedQuery)
-{
-    $key_msg = "time:".time();
-    $msg = "messaage text:".rand();
-    $preparedQuery->bindParam(':key_msg', $key_msg);
-    $preparedQuery->bindParam(':msg', $msg);
-    $preparedQuery->execute();
-    return new Response(
-        200,
-        ['Content-Type' => 'application/json'],
-        json_encode(["simple_text" => "New message!!!"]) 
-    );
-});
-
-$socket = new SocketServer('0.0.0.0:9000', $loop);
+$socket = new SocketServer(isset($argv[1]) ? $argv[1] : '0.0.0.0:9000');
 $server->listen($socket);
 echo "Server ReactPHP HTTP Server have to started".PHP_EOL;
-echo 'Working on ' . str_replace('tcp:','http:',$socket->getAddress())."\n";
+echo 'Working on ' . str_replace('tcp:', 'http:', $socket->getAddress())."\n";
 
 $loop->run();
